@@ -50,14 +50,14 @@ dnf install -y $HOME/rpmbuild/RPMS/*/*.rpm
 cp $HOME/rpmbuild/RPMS/*/*.rpm dist
 
 # run the daemon to check it starts
+mkdir -p /run/dbus
+mkdir -p /var
+ln -s /var/run /run
+dbus-daemon --system --fork
 /usr/libexec/fwupd/fwupd --immediate-exit --verbose
 
 # run the installed tests
 if [ "$CI" = "true" ]; then
 	sed "s,^BlacklistPlugins=test,BlacklistPlugins=," -i /etc/fwupd/daemon.conf
-	mkdir -p /run/dbus
-	mkdir -p /var
-	ln -s /var/run /run
-	dbus-daemon --system --fork
 	gnome-desktop-testing-runner fwupd
 fi
