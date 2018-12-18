@@ -55,6 +55,7 @@ mkdir -p /var
 ln -s /var/run /run
 dbus-daemon --system --fork
 /usr/lib/polkit-1/polkitd &
+sleep 5
 /usr/libexec/fwupd/fwupd --immediate-exit --verbose
 
 # run the installed tests
