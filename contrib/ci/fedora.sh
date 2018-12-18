@@ -58,6 +58,10 @@ dbus-daemon --system --fork
 sleep 5
 /usr/libexec/fwupd/fwupd --immediate-exit --verbose
 
+# debug a bit more
+/usr/libexec/fwupd/fwupd --verbose &
+sleep 10
+
 # run the installed tests
 if [ "$CI" = "true" ]; then
 	sed "s,^BlacklistPlugins=test,BlacklistPlugins=," -i /etc/fwupd/daemon.conf
