@@ -270,7 +270,7 @@ if get_option('plugin_thunderbolt')
 endif
 
 if get_option('plugin_flashrom')
-  libflashrom = cc.find_library('libflashrom', dirs : '/usr/local/lib' , version : '>= 1.0')
+  libflashrom = dependency('flashrom', fallback : ['flashrom', 'flashrom_dep'])
 endif
 
 if get_option('systemd')
