@@ -29,11 +29,10 @@
 #define SELFCHECK_TRUE 1
 
 struct FuPluginData {
-	gchar			*flashrom_fn;
-	gsize			flash_size;
-	struct flashrom_flashctx *flashctx;
-	struct flashrom_layout *layout;
-	struct flashrom_programmer *flashprog;
+	gsize				 flash_size;
+	struct flashrom_flashctx	*flashctx;
+	struct flashrom_layout		*layout;
+	struct flashrom_programmer	*flashprog;
 };
 
 void
@@ -46,7 +45,6 @@ void
 fu_plugin_destroy (FuPlugin *plugin)
 {
 	FuPluginData *data = fu_plugin_get_data (plugin);
-	g_free (data->flashrom_fn);
 	flashrom_layout_release (data->layout);
 	flashrom_programmer_shutdown (data->flashprog);
 	flashrom_flash_release (data->flashctx);
@@ -59,32 +57,28 @@ fu_plugin_startup (FuPlugin *plugin, GError **error)
 	GPtrArray *hwids;
 	g_autoptr(GError) error_local = NULL;
 
-	/* we need flashrom from the host system */
-	data->flashrom_fn = fu_common_find_program_in_path ("flashrom", &error_local);
+	/* probe hardware */
 	if (flashrom_init (SELFCHECK_TRUE)) {
-		g_set_error (error,
-			FWUPD_ERROR,
-			FWUPD_ERROR_NOT_SUPPORTED,
-			"Flashrom initialization error");
+		g_set_error_literal (error,
+				     FWUPD_ERROR,
+				     FWUPD_ERROR_NOT_SUPPORTED,
+				     "Flashrom initialization error");
 		return FALSE;
 	}
-
 	if (flashrom_programmer_init (&(data->flashprog), "internal", NULL)) {
-		g_set_error (error,
-			FWUPD_ERROR,
-			FWUPD_ERROR_NOT_SUPPORTED,
-			"Programmer initialization failed");
+		g_set_error_literal (error,
+				     FWUPD_ERROR,
+				     FWUPD_ERROR_NOT_SUPPORTED,
+				     "Programmer initialization failed");
 		return FALSE;
 	}
-
 	if (flashrom_flash_probe (&(data->flashctx), data->flashprog, NULL)) {
-		g_set_error (error,
-			FWUPD_ERROR,
-			FWUPD_ERROR_NOT_SUPPORTED,
-			"Flash probe failed");
+		g_set_error_literal (error,
+				     FWUPD_ERROR,
+				     FWUPD_ERROR_NOT_SUPPORTED,
+				     "Flash probe failed");
 		return FALSE;
 	}
-
 	data->flash_size = flashrom_flash_getsize (data->flashctx);
 
 	/* TODO: callback_implementation */
@@ -106,11 +100,7 @@ fu_plugin_startup (FuPlugin *plugin, GError **error)
 			fu_device_set_id (dev, device_id);
 			fu_device_set_quirks (dev, fu_plugin_get_quirks (plugin));
 			fu_device_add_flag (dev, FWUPD_DEVICE_FLAG_INTERNAL);
-			if (data->flashrom_fn != NULL) {
-				fu_device_add_flag (dev, FWUPD_DEVICE_FLAG_UPDATABLE);
-			} else {
-				fu_device_set_update_error (dev, error_local->message);
-			}
+			fu_device_add_flag (dev, FWUPD_DEVICE_FLAG_UPDATABLE);
 			fu_device_add_guid (dev, guid);
 			fu_device_set_name (dev, fu_plugin_get_dmi_value (plugin, FU_HWIDS_KEY_PRODUCT_NAME));
 			fu_device_set_vendor (dev, fu_plugin_get_dmi_value (plugin, FU_HWIDS_KEY_MANUFACTURER));
@@ -123,6 +113,7 @@ fu_plugin_startup (FuPlugin *plugin, GError **error)
 	return TRUE;
 }
 
+#if 0
 static guint
 fu_plugin_flashrom_parse_percentage (const gchar *lines_verbose)
 {
@@ -160,6 +151,7 @@ fu_plugin_flashrom_write_cb (const gchar *line, gpointer user_data)
 		fu_device_set_status (device, FWUPD_STATUS_DEVICE_WRITE);
 	fu_device_set_progress (device, fu_plugin_flashrom_parse_percentage (line));
 }
+#endif
 
 gboolean
 fu_plugin_update_prepare (FuPlugin *plugin,
@@ -168,9 +160,8 @@ fu_plugin_update_prepare (FuPlugin *plugin,
 			  GError **error)
 {
 	FuPluginData *data = fu_plugin_get_data (plugin);
-	g_autofree gchar *firmware_orig = NULL;
 	g_autofree gchar *basename = NULL;
-	g_autofree guint8 *newcontents = NULL;
+	g_autofree gchar *firmware_orig = NULL;
 
 	/* not us */
 	if (fu_plugin_cache_lookup (plugin, fu_device_get_id (device)) == NULL)
@@ -183,24 +174,20 @@ fu_plugin_update_prepare (FuPlugin *plugin,
 	if (!fu_common_mkdir_parent (firmware_orig, error))
 		return FALSE;
 	if (!g_file_test (firmware_orig, G_FILE_TEST_EXISTS)) {
-		newcontents = g_malloc (data->flash_size);
+		g_autofree guint8 *newcontents = g_malloc (data->flash_size);
+		g_autoptr(GBytes) buf = NULL;
 
 		// TODO: callback implementation
 		if (flashrom_image_read (data->flashctx, newcontents, data->flash_size)) {
 			g_set_error (error,
-				FWUPD_ERROR,
-				FWUPD_ERROR_READ,
-				"Failed to get original firmware");
+				     FWUPD_ERROR,
+				     FWUPD_ERROR_READ,
+				     "Failed to get original firmware");
 			return FALSE;
 		}
-
-		if (write_buf_to_file (newcontents, data->flash_size, firmware_orig)) {
-			g_set_error (error,
-				FWUPD_ERROR,
-				FWUPD_ERROR_NOT_SUPPORTED,
-				"Write buffer to file failed");
+		buf = g_bytes_new_static (newcontents, data->flash_size);
+		if (!fu_common_set_contents_bytes (firmware_orig, buf, error))
 			return FALSE;
-		}
 	}
 
 	return TRUE;
@@ -214,59 +201,44 @@ fu_plugin_update (FuPlugin *plugin,
 		  GError **error)
 {
 	FuPluginData *data = fu_plugin_get_data (plugin);
-	g_autofree gchar *firmware_fn = NULL;
-	g_autofree gchar *tmpdir = NULL;
-	g_autofree guint8 *newcontents = NULL;
-
-	/* write blob to temp location */
-	tmpdir = g_dir_make_tmp ("fwupd-XXXXXX", error);
-	if (tmpdir == NULL)
-		return FALSE;
-	firmware_fn = g_build_filename (tmpdir, "flashrom-firmware.bin", NULL);
-	if (!fu_common_set_contents_bytes (firmware_fn, blob_fw, error))
-		return FALSE;
-
-	flashrom_flag_set (data->flashctx, FLASHROM_FLAG_VERIFY_AFTER_WRITE, TRUE);
+	gsize sz = 0;
+	const guint8 *buf = g_bytes_get_data (blob_fw, &sz);
 
 	if (flashrom_layout_read_from_ifd (&(data->layout), data->flashctx, NULL, 0)) {
-		g_set_error (error,
-			FWUPD_ERROR,
-			FWUPD_ERROR_READ,
-			"Reading layout from Intel ICH descriptor failed");
+		g_set_error_literal (error,
+				     FWUPD_ERROR,
+				     FWUPD_ERROR_READ,
+				     "Failed to read layout from Intel ICH descriptor");
 		return FALSE;
 	}
 
-	/* Include bios region for safety reasons */
+	/* include bios region for safety reasons */
 	if (flashrom_layout_include_region (data->layout, "bios")) {
-		g_set_error (error,
-			FWUPD_ERROR,
-			FWUPD_ERROR_NOT_SUPPORTED,
-			"Invalid region name");
+		g_set_error_literal (error,
+				     FWUPD_ERROR,
+				     FWUPD_ERROR_NOT_SUPPORTED,
+				     "Invalid region name");
 		return FALSE;
 	}
 
+	/* write region */
 	flashrom_layout_set (data->flashctx, data->layout);
-	newcontents = g_malloc (data->flash_size);
-
-	if (read_buf_from_file (newcontents, data->flash_size, firmware_fn)) {
+	if (sz != data->flash_size) {
 		g_set_error (error,
-			FWUPD_ERROR,
-			FWUPD_ERROR_NOT_SUPPORTED,
-			"Read buffer from file failed");
+			     FWUPD_ERROR,
+			     FWUPD_ERROR_NOT_SUPPORTED,
+			     "Invalid image size 0x%x, expected 0x%x",
+			     (guint) sz, (guint) data->flash_size);
 		return FALSE;
 	}
-
-	if (flashrom_image_write (data->flashctx, newcontents, data->flash_size, NULL)) {
+	flashrom_flag_set (data->flashctx, FLASHROM_FLAG_VERIFY_AFTER_WRITE, TRUE);
+	if (flashrom_image_write (data->flashctx, buf, sz, NULL)) {
 		g_set_error (error,
 			FWUPD_ERROR,
 			FWUPD_ERROR_WRITE,
 			"Image write failed");
 		return FALSE;
 	}
-
-	/* delete temp location */
-	if (!fu_common_rmtree (tmpdir, error))
-		return FALSE;
 
 	/* success */
 	return TRUE;
