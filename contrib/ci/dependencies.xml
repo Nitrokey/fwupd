@@ -142,6 +142,25 @@
       <package variant="x86_64" />
     </distro>
   </dependency>
+  <dependency type="build" id="libpci-dev">
+    <distro id="arch">
+      <package>pciutils</package>
+    </distro>
+    <distro id="centos">
+      <package>libpci-devel</package>
+    </distro>
+    <distro id="fedora">
+      <package>libpci-devel</package>
+    </distro>
+    <distro id="debian">
+      <package variant="x86_64" />
+      <package variant="s390x">libpci-dev:s390x</package>
+      <package variant="i386" />
+    </distro>
+    <distro id="ubuntu">
+      <package variant="x86_64" />
+    </distro>
+  </dependency>
   <dependency type="build" id="fonts-noto">
     <distro id="arch">
       <package>noto-fonts</package>
