@@ -154,7 +154,6 @@
     </distro>
     <distro id="debian">
       <package variant="x86_64" />
-      <package variant="s390x">libftdi1-dev:s390x</package>
       <package variant="i386" />
     </distro>
     <distro id="ubuntu">
@@ -173,7 +172,6 @@
     </distro>
     <distro id="debian">
       <package variant="x86_64" />
-      <package variant="s390x">libpci-dev:s390x</package>
       <package variant="i386" />
     </distro>
     <distro id="ubuntu">
