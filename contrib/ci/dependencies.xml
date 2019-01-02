@@ -147,10 +147,10 @@
       <package>libftdi</package>
     </distro>
     <distro id="centos">
-      <package>libftdi1-devel</package>
+      <package>libftdi-devel</package>
     </distro>
     <distro id="fedora">
-      <package>libftdi1-devel</package>
+      <package>libftdi-devel</package>
     </distro>
     <distro id="debian">
       <package variant="x86_64" />
@@ -165,10 +165,10 @@
       <package>pciutils</package>
     </distro>
     <distro id="centos">
-      <package>libpci-devel</package>
+      <package>pciutils-devel</package>
     </distro>
     <distro id="fedora">
-      <package>libpci-devel</package>
+      <package>pciutils-devel</package>
     </distro>
     <distro id="debian">
       <package variant="x86_64" />
