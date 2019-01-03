@@ -141,6 +141,7 @@ Data files for installed tests.
 %else
     -Dplugin_dummy=false \
 %endif
+    -Dplugin_flashrom=false \
     -Dplugin_thunderbolt=true \
 %if 0%{?have_redfish}
     -Dplugin_redfish=true \
