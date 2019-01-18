@@ -32,10 +32,14 @@
 #define EC_CMD_MODIFY_LOCK		0x0a
 #define EC_CMD_RESET			0x0b
 #define EC_CMD_REBOOT			0x0c
+#define EC_CMD_PASSIVE			0x0d /* TBD */
 #define EC_GET_FW_UPDATE_STATUS		0x0f
 
 #define EXPECTED_DOCK_INFO_SIZE		0xb7
 #define EXPECTED_DOCK_TYPE		0x04
+
+#define PASSIVE_RESET_MASK		0x01
+#define PASSIVE_REBOOT_MASK		0x02
 
 typedef enum {
 	FW_UPDATE_IN_PROGRESS,
@@ -130,7 +134,12 @@ struct _FuDellDockEc {
 	guint8				 board_min;
 	gchar				*ec_minimum_version;
 	guint64				 blob_version_offset;
+	guint8				 passive_flow;
 };
+
+static gboolean	fu_dell_dock_get_ec_status	(FuDevice *device,
+						 FuDellDockECFWUpdateStatus *status_out,
+						 GError **error);
 
 G_DEFINE_TYPE (FuDellDockEc, fu_dell_dock_ec, FU_TYPE_DEVICE)
 
@@ -170,6 +179,14 @@ fu_dell_dock_ec_has_tbt (FuDevice *device)
 	FuDellDockEc *self = FU_DELL_DOCK_EC (device);
 
 	return self->data->module_type == MODULE_TYPE_TBT;
+}
+
+gboolean
+fu_dell_dock_ec_uses_passive (FuDevice *device)
+{
+	FuDellDockEc *self = FU_DELL_DOCK_EC (device);
+
+	return self->passive_flow > 0;
 }
 
 static const gchar*
@@ -395,6 +412,29 @@ fu_dell_dock_ec_get_dock_info (FuDevice *device,
 	}
 	fu_device_set_version_lowest (device, self->ec_minimum_version);
 
+	/* TODO: Drop is minimum EC is set to 21+
+	 * Determine if the passive flow should be used when flashing
+	 */
+	if (fu_common_vercmp (self->ec_version, "00.00.00.21") >= 0) { /* TBD on version */
+		const gchar *os_release_id = NULL;
+		g_autoptr(GError) error_local = NULL;
+		g_autoptr(GHashTable) os_release = NULL;
+
+		os_release = fwupd_get_os_release (&error_local);
+		if (os_release == NULL) {
+			g_debug ("failed to get ID: %s", error_local->message);
+			return TRUE;
+		}
+		os_release_id = g_hash_table_lookup (os_release, "ID");
+		if (os_release_id == NULL)
+			return TRUE;
+		if (g_strcmp0 (os_release_id, "chromeos") == 0) {
+			g_debug ("Using passive flow");
+			self->passive_flow = PASSIVE_REBOOT_MASK;
+			fu_device_set_custom_flags (device, "skip-restart");
+		}
+	}
+
 	return TRUE;
 }
 
@@ -409,6 +449,7 @@ fu_dell_dock_ec_get_dock_data (FuDevice *device,
 	const guint8 *result;
 	gsize length = sizeof(FuDellDockDockDataStructure);
 	g_autofree gchar *bundled_serial = NULL;
+	FuDellDockECFWUpdateStatus status;
 
 	g_return_val_if_fail (device != NULL, FALSE);
 
@@ -452,10 +493,20 @@ fu_dell_dock_ec_get_dock_data (FuDevice *device,
 	/* copy this for being able to send in next commit transaction */
 	self->raw_versions->pkg_version = self->data->dock_firmware_pkg_ver;
 
+	/* read if passive update pending */
+	if (!fu_dell_dock_get_ec_status (device, &status, error))
+		return FALSE;
+
 	/* make sure this hardware spin matches our expecations */
 	if (self->data->board_id >= self->board_min) {
-		fu_dell_dock_ec_set_board (device);
-		fu_device_add_flag (device, FWUPD_DEVICE_FLAG_UPDATABLE);
+		if (status != FW_UPDATE_IN_PROGRESS) {
+			fu_dell_dock_ec_set_board (device);
+			fu_device_add_flag (device, FWUPD_DEVICE_FLAG_UPDATABLE);
+		} else {
+			fu_device_set_update_error (device, "An update is pending "
+							    "next time the dock is "
+							    "unplugged");
+		}
 	} else {
 		g_warning ("This utility does not support this board, disabling updates for %s",
 			   fu_device_get_name (device));
@@ -540,18 +591,23 @@ fu_dell_dock_ec_reset (FuDevice *device, GError **error)
 gboolean
 fu_dell_dock_ec_reboot_dock (FuDevice *device, GError **error)
 {
-	guint16 cmd = EC_CMD_REBOOT;
+	FuDellDockEc *self = FU_DELL_DOCK_EC (device);
 
 	g_return_val_if_fail (device != NULL, FALSE);
 
-	if (fu_device_has_custom_flag (device, "skip-restart")) {
-		g_debug ("Skipping reboot per quirk request");
-		return TRUE;
+	if (self->passive_flow > 0) {
+		guint32 cmd = EC_CMD_PASSIVE |
+			      self->passive_flow << 8;
+		g_debug ("Activating passive flow for %s",
+			 fu_device_get_name (device));
+		return fu_dell_dock_ec_write (device, 3, (guint8 *) &cmd, error);
+	} else {
+		guint16 cmd = EC_CMD_REBOOT;
+		g_debug ("Rebooting %s", fu_device_get_name (device));
+		return fu_dell_dock_ec_write (device, 2, (guint8 *) &cmd, error);
 	}
 
-	g_debug ("Rebooting %s", fu_device_get_name (device));
-
-	return fu_dell_dock_ec_write (device, 2, (guint8 *) &cmd, error);
+	return TRUE;
 }
 
 static gboolean
@@ -705,6 +761,11 @@ fu_dell_dock_ec_write_fw (FuDevice *device, GBytes *blob_fw,
 
 	/* dock will reboot to re-read; this is to appease the daemon */
 	fu_device_set_version (device, dynamic_version);
+
+	/* activate passive behavior */
+	if (self->passive_flow) {
+		self->passive_flow &= PASSIVE_RESET_MASK;
+	}
 
 	if (fu_device_has_custom_flag (device, "skip-restart")) {
 		g_debug ("Skipping EC reset per quirk request");
