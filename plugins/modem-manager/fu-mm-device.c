@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2018 Richard Hughes <richard@hughsie.com>
+ * Copyright (C) 2019 Aleksander Morgado <aleksander@aleksander.es>
  *
  * SPDX-License-Identifier: LGPL-2.1+
  */
@@ -9,7 +10,9 @@
 #include <string.h>
 
 #include "fu-io-channel.h"
+#include "fu-archive.h"
 #include "fu-mm-device.h"
+#include "fu-qmi-pdc-updater.h"
 
 struct _FuMmDevice {
 	FuDevice			 parent_instance;
@@ -19,6 +22,8 @@ struct _FuMmDevice {
 	MMModemFirmwareUpdateMethod	 update_method;
 	gchar				*detach_fastboot_at;
 	gchar				*detach_port_at;
+	gchar				*port_qmi;
+	FuQmiPdcUpdater			*qmi_pdc_updater;
 	gchar				*inhibition_uid;
 };
 
@@ -39,6 +44,10 @@ fu_mm_device_to_string (FuDevice *device, GString *str)
 	if (self->detach_port_at != NULL) {
 		g_string_append_printf (str, "    at-port:\t\t\t%s\n",
 					self->detach_port_at);
+	}
+	if (self->port_qmi != NULL) {
+		g_string_append_printf (str, "    qmi-port:\t\t\t%s\n",
+					self->port_qmi);
 	}
 }
 
@@ -66,7 +75,8 @@ fu_mm_device_probe (FuDevice *device, GError **error)
 		return FALSE;
 	}
 
-	/* various fastboot commands */
+	/* various fastboot commands
+	 * qmi-pdc is not expected to be supported alone by itself (for now) */
 	if (self->update_method & MM_MODEM_FIRMWARE_UPDATE_METHOD_FASTBOOT) {
 		const gchar *tmp;
 		tmp = mm_firmware_update_settings_get_fastboot_at (update_settings);
@@ -113,11 +123,10 @@ fu_mm_device_probe (FuDevice *device, GError **error)
 	fu_device_set_vendor (device, mm_modem_get_manufacturer (modem));
 	fu_device_set_name (device, mm_modem_get_model (modem));
 	fu_device_set_version (device, version);
-	fu_device_set_remove_delay (device, FU_DEVICE_REMOVE_DELAY_RE_ENUMERATE);
 	for (guint i = 0; device_ids[i] != NULL; i++)
 		fu_device_add_guid (device, device_ids[i]);
 
-	/* look for the AT port */
+	/* look for the AT and QMI/MBIM ports */
 	if (!mm_modem_get_ports (modem, &ports, &n_ports)) {
 		g_set_error_literal (error,
 				     FWUPD_ERROR,
@@ -131,6 +140,15 @@ fu_mm_device_probe (FuDevice *device, GError **error)
 			break;
 		}
 	}
+	if (self->update_method & MM_MODEM_FIRMWARE_UPDATE_METHOD_QMI_PDC) {
+		for (guint i = 0; i < n_ports; i++) {
+			if ((ports[i].type == MM_MODEM_PORT_TYPE_QMI) ||
+			    (ports[i].type == MM_MODEM_PORT_TYPE_MBIM)) {
+				self->port_qmi = g_strdup_printf ("/dev/%s", ports[i].name);
+				break;
+			}
+		}
+	}
 	mm_modem_port_info_array_free (ports, n_ports);
 
 	/* this is required for detaching */
@@ -139,6 +157,16 @@ fu_mm_device_probe (FuDevice *device, GError **error)
 				     FWUPD_ERROR,
 				     FWUPD_ERROR_NOT_SUPPORTED,
 				     "failed to find AT port");
+		return FALSE;
+	}
+
+	/* a qmi port is required for qmi-pdc */
+	if ((self->update_method & MM_MODEM_FIRMWARE_UPDATE_METHOD_QMI_PDC) &&
+	    (self->port_qmi == NULL)) {
+		g_set_error_literal (error,
+				     FWUPD_ERROR,
+				     FWUPD_ERROR_NOT_SUPPORTED,
+				     "failed to find QMI port");
 		return FALSE;
 	}
 
@@ -235,6 +263,7 @@ fu_mm_device_detach_fastboot (FuDevice *device, GError **error)
 	}
 
 	/* success */
+	fu_device_set_remove_delay (device, FU_DEVICE_REMOVE_DELAY_RE_ENUMERATE);
 	fu_device_add_flag (device, FWUPD_DEVICE_FLAG_WAIT_FOR_REPLUG);
 	return TRUE;
 }
@@ -277,6 +306,97 @@ fu_mm_device_uninhibit (FuMmDevice *self)
 }
 
 static gboolean
+fu_mm_device_qmi_open (FuMmDevice *self, GError **error)
+{
+	self->qmi_pdc_updater = fu_qmi_pdc_updater_new (self->port_qmi);
+	return fu_qmi_pdc_updater_open (self->qmi_pdc_updater, error);
+}
+
+static gboolean
+fu_mm_device_qmi_close (FuMmDevice *self, GError **error)
+{
+	g_autoptr(FuQmiPdcUpdater) updater = g_steal_pointer (&self->qmi_pdc_updater);
+	g_assert (updater != NULL);
+	return fu_qmi_pdc_updater_close (updater, error);
+}
+
+typedef struct {
+	FuMmDevice	*device;
+	GError		*error;
+} ArchiveIterateContext;
+
+static void
+fu_mm_qmi_pdc_archive_iterate_mcfg (FuArchive *archive, const gchar *filename, GBytes *bytes, gpointer user_data)
+{
+	ArchiveIterateContext *ctx = user_data;
+
+	/* filenames should be named as 'mcfg.*.mbn', e.g.: mcfg.A2.018.mbn */
+	if (!g_str_has_prefix (filename, "mcfg.") || !g_str_has_suffix (filename, ".mbn"))
+		return;
+
+	/* if there has already been an error for a previous file, abort */
+	if (ctx->error != NULL) {
+		g_warning ("Skipping mcfg file '%s': aborted due to previous error", filename);
+		return;
+	}
+
+	g_debug ("Writing mcfg file '%s'", filename);
+	if (!fu_qmi_pdc_updater_write (ctx->device->qmi_pdc_updater, filename, bytes, &ctx->error))
+		g_warning ("Failed to write file '%s': %s", filename, ctx->error->message);
+}
+
+static gboolean
+fu_mm_device_write_firmware_qmi_pdc (FuDevice *device, GBytes *fw, GError **error)
+{
+	g_autoptr(FuArchive) archive = NULL;
+	g_autoptr(FuDeviceLocker) locker = NULL;
+	ArchiveIterateContext iterate_context = {
+		.device = FU_MM_DEVICE (device),
+	};
+
+	/* decompress entire archive ahead of time */
+	archive = fu_archive_new (fw, FU_ARCHIVE_FLAG_IGNORE_PATH, error);
+	if (archive == NULL)
+		return FALSE;
+
+	/* boot to fastboot mode */
+	locker = fu_device_locker_new_full (device,
+					    (FuDeviceLockerFunc) fu_mm_device_qmi_open,
+					    (FuDeviceLockerFunc) fu_mm_device_qmi_close,
+					    error);
+	if (locker == NULL)
+		return FALSE;
+
+	/* Write all MCFG files found via QMI PDC */
+	fu_archive_iterate (archive, fu_mm_qmi_pdc_archive_iterate_mcfg, &iterate_context);
+
+	if (iterate_context.error != NULL) {
+		g_propagate_error (error, iterate_context.error);
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+static gboolean
+fu_mm_device_write_firmware (FuDevice *device, GBytes *fw, GError **error)
+{
+	FuMmDevice *self = FU_MM_DEVICE (device);
+	g_autoptr(FuArchive) archive = NULL;
+	g_autoptr(GPtrArray) array = NULL;
+
+	/* updating firmware in the MM plugin only supported for the QMI PDC method */
+	if (self->update_method & MM_MODEM_FIRMWARE_UPDATE_METHOD_QMI_PDC)
+		return fu_mm_device_write_firmware_qmi_pdc (device, fw, error);
+
+	g_set_error_literal (error,
+			     G_IO_ERROR,
+			     G_IO_ERROR_NOT_SUPPORTED,
+			     "unsupported update method");
+	return FALSE;
+}
+
+static gboolean
 fu_mm_device_detach (FuDevice *device, GError **error)
 {
 	FuMmDevice *self = FU_MM_DEVICE (device);
@@ -293,6 +413,10 @@ fu_mm_device_detach (FuDevice *device, GError **error)
 	locker = fu_device_locker_new (device, error);
 	if (locker == NULL)
 		return FALSE;
+
+	/* qmi pdc doesn't require any detach */
+	if (self->update_method & MM_MODEM_FIRMWARE_UPDATE_METHOD_QMI_PDC)
+		return TRUE;
 
 	/* fastboot */
 	if (self->update_method & MM_MODEM_FIRMWARE_UPDATE_METHOD_FASTBOOT)
@@ -326,6 +450,7 @@ fu_mm_device_finalize (GObject *object)
 	g_clear_object (&self->omodem);
 	g_free (self->detach_fastboot_at);
 	g_free (self->detach_port_at);
+	g_free (self->port_qmi);
 	G_OBJECT_CLASS (fu_mm_device_parent_class)->finalize (object);
 }
 
@@ -338,6 +463,7 @@ fu_mm_device_class_init (FuMmDeviceClass *klass)
 	klass_device->to_string = fu_mm_device_to_string;
 	klass_device->probe = fu_mm_device_probe;
 	klass_device->detach = fu_mm_device_detach;
+	klass_device->write_firmware = fu_mm_device_write_firmware;
 }
 
 FuMmDevice *

@@ -5,6 +5,7 @@ shared_module('fu_plugin_modem_manager',
   sources : [
     'fu-plugin-modem-manager.c',
     'fu-mm-device.c',
+    'fu-qmi-pdc-updater.c'
   ],
   include_directories : [
     include_directories('../..'),
@@ -22,5 +23,6 @@ shared_module('fu_plugin_modem_manager',
   dependencies : [
     plugin_deps,
     libmm_glib,
+    libqmi_glib,
   ],
 )

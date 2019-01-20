@@ -174,7 +174,19 @@ fu_plugin_update_detach (FuPlugin *plugin, FuDevice *device, GError **error)
 	if (!fu_device_detach (FU_DEVICE (device), error))
 		return FALSE;
 
-	/* wait for replug */
-	fu_device_add_flag (device, FWUPD_DEVICE_FLAG_WAIT_FOR_REPLUG);
+	/* note: wait for replug set by device if it really needs it */
 	return TRUE;
+}
+
+gboolean
+fu_plugin_update (FuPlugin *plugin,
+		  FuDevice *device,
+		  GBytes *blob_fw,
+		  FwupdInstallFlags flags,
+		  GError **error)
+{
+	g_autoptr(FuDeviceLocker) locker = fu_device_locker_new (device, error);
+	if (locker == NULL)
+		return FALSE;
+	return fu_device_write_firmware (device, blob_fw, error);
 }
