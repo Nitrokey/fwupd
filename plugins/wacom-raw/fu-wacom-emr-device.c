@@ -158,7 +158,7 @@ fu_wacom_emr_device_write_block (FuWacomEmrDevice *self,
 	}
 
 	/* data */
-	memcpy (&req.data + 8, data, datasz);
+	memcpy (&req.data, data, datasz);
 
 	/* cmd and data checksums */
 	req.data[blocksz + 0] = fu_wacom_emr_device_calc_checksum (0x05 + 0x00 + 0x4c + 0x00,
