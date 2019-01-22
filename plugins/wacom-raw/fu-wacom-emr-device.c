@@ -148,6 +148,14 @@ fu_wacom_emr_device_write_block (FuWacomEmrDevice *self,
 	FuWacomRawResponse rsp = { 0x00 };
 
 	/* check size */
+	if (datasz > sizeof(req.data)) {
+		g_set_error (error,
+			     G_IO_ERROR,
+			     G_IO_ERROR_FAILED,
+			     "data size 0x%x too large for packet",
+			     datasz);
+		return FALSE;
+	}
 	if (datasz != blocksz) {
 		g_set_error (error,
 			     G_IO_ERROR,

@@ -348,7 +348,7 @@ fu_wacom_device_cmd (FuWacomDevice *self,
 	if (delay_us > 0)
 		g_usleep (delay_us);
 	rsp->report_id = FU_WACOM_RAW_BL_REPORT_ID_GET;
-	if (!fu_wacom_device_get_feature (self, (const guint8 *)rsp, sizeof(*rsp), error)) {
+	if (!fu_wacom_device_get_feature (self, (guint8 *)rsp, sizeof(*rsp), error)) {
 		g_prefix_error (error, "failed to receive: ");
 		return FALSE;
 	}
@@ -361,7 +361,7 @@ fu_wacom_device_cmd (FuWacomDevice *self,
 		for (guint i = 0; i < FU_WACOM_RAW_CMD_RETRIES; i++) {
 			if (delay_us > 0)
 				g_usleep (delay_us);
-			if (!fu_wacom_device_get_feature (self, (const guint8 *)rsp, sizeof(*rsp), error))
+			if (!fu_wacom_device_get_feature (self, (guint8 *)rsp, sizeof(*rsp), error))
 				return FALSE;
 			if (!fu_wacom_common_check_reply (req, rsp, error))
 				return FALSE;
