@@ -63,7 +63,8 @@ fu_wacom_device_check_mpu (FuWacomDevice *self, GError **error)
 	guint8 cmd[] = {
 		FU_WACOM_DEVICE_BL_REPORT_ID_SET,
 		FU_WACOM_DEVICE_BL_CMD_GET_MPUTYPE,
-		0x07,
+		FU_WACOM_DEVICE_ECHO_DEFAULT,		/* echo */
+		0x00					/* rsp */
 	};
 	if (!fu_wacom_device_cmd (FU_WACOM_DEVICE (self),
 				  cmd, sizeof(cmd), rsp, sizeof(rsp), 0,
@@ -142,6 +143,8 @@ fu_wacom_device_detach (FuDevice *device, GError **error)
 	guint8 cmd[] = {
 		FU_WACOM_DEVICE_FW_REPORT_ID,
 		FU_WACOM_DEVICE_FW_CMD_DETACH,
+		FU_WACOM_DEVICE_ECHO_DEFAULT,		/* echo */
+		0x00					/* rsp */
 	};
 	if (!fu_wacom_device_set_feature (self, cmd, sizeof(cmd), error)) {
 		g_prefix_error (error, "failed to switch to bootloader mode: ");
@@ -159,7 +162,8 @@ fu_wacom_device_attach (FuDevice *device, GError **error)
 	guint8 cmd[] = {
 		FU_WACOM_DEVICE_BL_REPORT_ID_SET,
 		FU_WACOM_DEVICE_BL_CMD_ATTACH,
-		0x00,
+		FU_WACOM_DEVICE_ECHO_DEFAULT,		/* echo */
+		0x00					/* rsp */
 	};
 	if (!fu_wacom_device_set_feature (self, cmd, sizeof(cmd), error)) {
 		g_prefix_error (error, "failed to switch to runtime mode: ");
@@ -178,6 +182,8 @@ fu_wacom_device_check_mode (FuWacomDevice *self, GError **error)
 	guint8 cmd[] = {
 		FU_WACOM_DEVICE_BL_REPORT_ID_SET,
 		FU_WACOM_DEVICE_BL_CMD_CHECK_MODE,
+		FU_WACOM_DEVICE_ECHO_DEFAULT,		/* echo */
+		0x00					/* rsp */
 	};
 	if (!fu_wacom_device_cmd (self, cmd, sizeof(cmd), rsp, sizeof(rsp), 0,
 				  FU_WACOM_DEVICE_CMD_FLAG_NONE, error)) {
@@ -202,6 +208,8 @@ fu_wacom_device_set_version_bootloader (FuWacomDevice *self, GError **error)
 	guint8 cmd[] = {
 		FU_WACOM_DEVICE_BL_REPORT_ID_SET,
 		FU_WACOM_DEVICE_BL_CMD_GET_BLVER,
+		FU_WACOM_DEVICE_ECHO_DEFAULT,		/* echo */
+		0x00					/* rsp */
 	};
 	g_autofree gchar *version = NULL;
 	if (!fu_wacom_device_cmd (self, cmd, sizeof(cmd), rsp, sizeof(rsp), 0,
@@ -342,6 +350,7 @@ fu_wacom_device_cmd (FuWacomDevice *self,
 	}
 	if (delay_us > 0)
 		g_usleep (delay_us);
+	rsp[0] = cmd[0];
 	if (!fu_wacom_device_get_feature (self, rsp, rspsz, error)) {
 		g_prefix_error (error, "failed to receive: ");
 		return FALSE;

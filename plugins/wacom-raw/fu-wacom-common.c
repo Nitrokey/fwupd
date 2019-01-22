@@ -25,7 +25,7 @@ fu_wacom_common_check_reply (const guint8 *cmd, const guint8 *rsp, GError **erro
 		g_set_error (error,
 			     G_IO_ERROR,
 			     G_IO_ERROR_FAILED,
-			     "cmd failed, expected 0x%02x, got 0x%02x",
+			     "echo failed, expected 0x%02x, got 0x%02x",
 			     cmd[RTRN_ECH], rsp[RTRN_ECH]);
 		return FALSE;
 	}

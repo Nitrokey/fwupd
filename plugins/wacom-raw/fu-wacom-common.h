@@ -46,6 +46,8 @@ G_BEGIN_DECLS
 #define FU_WACOM_DEVICE_RC_TIMEOUT		0x87
 #define FU_WACOM_DEVICE_RC_IN_PROGRESS		0xff
 
+#define FU_WACOM_DEVICE_ECHO_DEFAULT		0xee
+
 #define RTRN_CMD				1
 #define RTRN_ECH				2
 #define RTRN_RSP				3
