@@ -59,12 +59,12 @@ fu_wacom_device_get_base_addr (FuWacomDevice *self)
 gboolean
 fu_wacom_device_check_mpu (FuWacomDevice *self, GError **error)
 {
-	FuWacomRawResponse rsp;
 	FuWacomRawRequest req = {
 		.cmd = FU_WACOM_RAW_BL_CMD_GET_MPUTYPE,
 		.echo = FU_WACOM_RAW_ECHO_DEFAULT,
 		0x00
 	};
+	FuWacomRawResponse rsp = { 0x00 };
 	if (!fu_wacom_device_cmd (FU_WACOM_DEVICE (self), &req, &rsp, 0,
 				  FU_WACOM_DEVICE_CMD_FLAG_NONE, error)) {
 		g_prefix_error (error, "failed to get MPU type: ");
@@ -175,23 +175,23 @@ static gboolean
 fu_wacom_device_check_mode (FuWacomDevice *self, GError **error)
 {
 #if 0
-	FuWacomRawResponse rsp;
 	FuWacomRawRequest req = {
 		.cmd = FU_WACOM_RAW_BL_CMD_CHECK_MODE,
 		.echo = FU_WACOM_RAW_ECHO_DEFAULT,
 		0x00
 	};
+	FuWacomRawResponse rsp = { 0x00 };
 	if (!fu_wacom_device_cmd (self, &req, &rsp, 0,
 				  FU_WACOM_DEVICE_CMD_FLAG_NONE, error)) {
 		g_prefix_error (error, "failed to check mode: ");
 		return FALSE;
 	}
-	if (rsp->resp != 0x06) {
+	if (rsp.resp != 0x06) {
 		g_set_error (error,
 			     G_IO_ERROR,
 			     G_IO_ERROR_FAILED,
 			     "check mode failed, mode=0x%02x",
-			     rsp->resp);
+			     rsp.resp);
 		return FALSE;
 	}
 #endif
@@ -201,12 +201,12 @@ fu_wacom_device_check_mode (FuWacomDevice *self, GError **error)
 static gboolean
 fu_wacom_device_set_version_bootloader (FuWacomDevice *self, GError **error)
 {
-	FuWacomRawResponse rsp;
 	FuWacomRawRequest req = {
 		.cmd = FU_WACOM_RAW_BL_CMD_GET_BLVER,
 		.echo = FU_WACOM_RAW_ECHO_DEFAULT,
 		0x00
 	};
+	FuWacomRawResponse rsp = { 0x00 };
 	g_autofree gchar *version = NULL;
 	if (!fu_wacom_device_cmd (self, &req, &rsp, 0,
 				  FU_WACOM_DEVICE_CMD_FLAG_NONE, error)) {

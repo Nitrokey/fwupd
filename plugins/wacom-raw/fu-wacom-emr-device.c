@@ -61,7 +61,7 @@ fu_wacom_emr_device_calc_checksum (guint8 init1, const guint8 *buf, guint8 bufsz
 static gboolean
 fu_wacom_emr_device_w9013_erase_data (FuWacomEmrDevice *self, GError **error)
 {
-	FuWacomRawResponse rsp;
+	FuWacomRawResponse rsp = { 0x00 };
 	FuWacomRawRequest req = {
 		.cmd = FU_WACOM_RAW_BL_CMD_ERASE_DATAMEM,
 		.echo = FU_WACOM_RAW_ECHO_DEFAULT,
@@ -86,7 +86,7 @@ fu_wacom_emr_device_w9013_erase_code (FuWacomEmrDevice *self,
 				      guint8 block_nr,
 				      GError **error)
 {
-	FuWacomRawResponse rsp;
+	FuWacomRawResponse rsp = { 0x00 };
 	FuWacomRawRequest req = {
 		.cmd = FU_WACOM_RAW_BL_CMD_ERASE_FLASH,
 		.echo = idx,
@@ -108,12 +108,12 @@ fu_wacom_emr_device_w9013_erase_code (FuWacomEmrDevice *self,
 static gboolean
 fu_wacom_device_w9021_erase_all (FuWacomEmrDevice *self, GError **error)
 {
-	FuWacomRawResponse rsp;
 	FuWacomRawRequest req = {
 		.cmd = FU_WACOM_RAW_BL_CMD_ALL_ERASE,
 		.echo = 0x01,
 		.addr = 0x00,
 	};
+	FuWacomRawResponse rsp = { 0x00 };
 	if (!fu_wacom_device_cmd (FU_WACOM_DEVICE (self), &req, &rsp,
 				  2000 * 1000, /* this takes a long time */
 				  FU_WACOM_DEVICE_CMD_FLAG_POLL_ON_WAITING, error)) {
@@ -138,7 +138,6 @@ fu_wacom_emr_device_write_block (FuWacomEmrDevice *self,
 {
 	guint baseaddr = fu_wacom_device_get_base_addr (FU_WACOM_DEVICE (self));
 	guint blocksz = fu_wacom_device_get_block_sz (FU_WACOM_DEVICE (self));
-	FuWacomRawResponse rsp;
 	FuWacomRawRequest req = {
 		.cmd = FU_WACOM_RAW_BL_CMD_WRITE_FLASH,
 		.echo = (guint8) idx,
@@ -146,6 +145,7 @@ fu_wacom_emr_device_write_block (FuWacomEmrDevice *self,
 		.size8 = datasz / 8,
 		.data = { 0x00 },
 	};
+	FuWacomRawResponse rsp = { 0x00 };
 
 	/* check size */
 	if (datasz != blocksz) {

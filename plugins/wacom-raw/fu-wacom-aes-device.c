@@ -109,12 +109,12 @@ fu_wacom_aes_device_setup (FuDevice *device, GError **error)
 static gboolean
 fu_wacom_aes_device_erase_all (FuWacomAesDevice *self, GError **error)
 {
-	FuWacomRawResponse rsp;
 	FuWacomRawRequest req = {
 		.cmd = FU_WACOM_RAW_BL_CMD_ALL_ERASE,
 		.echo = 0x01,
 		0x00
 	};
+	FuWacomRawResponse rsp = { 0x00 };
 	if (!fu_wacom_device_cmd (FU_WACOM_DEVICE (self), &req, &rsp,
 				  2000 * 1000, /* this takes a long time */
 				  FU_WACOM_DEVICE_CMD_FLAG_POLL_ON_WAITING, error)) {
@@ -139,7 +139,6 @@ fu_wacom_aes_device_write_block (FuWacomAesDevice *self,
 {
 	guint blocksz = fu_wacom_device_get_block_sz (FU_WACOM_DEVICE (self));
 	guint baseaddr = fu_wacom_device_get_base_addr (FU_WACOM_DEVICE (self));
-	FuWacomRawResponse rsp;
 	FuWacomRawRequest req = {
 		.cmd = FU_WACOM_RAW_BL_CMD_WRITE_FLASH,
 		.echo = (guint8) idx,
@@ -147,6 +146,7 @@ fu_wacom_aes_device_write_block (FuWacomAesDevice *self,
 		.size8 = datasz / 8,
 		.data = { 0x00 },
 	};
+	FuWacomRawResponse rsp = { 0x00 };
 
 	/* check size */
 	if (datasz != blocksz) {
