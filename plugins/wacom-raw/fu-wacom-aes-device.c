@@ -109,21 +109,19 @@ fu_wacom_aes_device_setup (FuDevice *device, GError **error)
 static gboolean
 fu_wacom_aes_device_erase_all (FuWacomAesDevice *self, GError **error)
 {
-	guint8 rsp[FU_WACOM_RAW_BL_RESPONSE_SZ];
-	guint8 cmd[] = {
-		FU_WACOM_RAW_BL_REPORT_ID_SET,
-		FU_WACOM_RAW_BL_CMD_ALL_ERASE,
-		0x01,				/* echo */
-		0x00,				/* blkNo */
+	FuWacomRawResponse rsp;
+	FuWacomRawRequest req = {
+		.cmd = FU_WACOM_RAW_BL_CMD_ALL_ERASE,
+		.echo = 0x01,
+		0x00
 	};
-	if (!fu_wacom_device_cmd (FU_WACOM_DEVICE (self),
-				  cmd, sizeof(cmd), rsp, sizeof(rsp),
+	if (!fu_wacom_device_cmd (FU_WACOM_DEVICE (self), &req, &rsp,
 				  2000 * 1000, /* this takes a long time */
 				  FU_WACOM_DEVICE_CMD_FLAG_POLL_ON_WAITING, error)) {
 		g_prefix_error (error, "failed to send eraseall command: ");
 		return FALSE;
 	}
-	if (!fu_wacom_common_rc_set_error (rsp[RTRN_RESP], error)) {
+	if (!fu_wacom_common_rc_set_error (&rsp, error)) {
 		g_prefix_error (error, "failed to erase");
 		return FALSE;
 	}
@@ -140,17 +138,17 @@ fu_wacom_aes_device_write_block (FuWacomAesDevice *self,
 				 GError **error)
 {
 	guint blocksz = fu_wacom_device_get_block_sz (FU_WACOM_DEVICE (self));
-	guint8 rsp[FU_WACOM_RAW_BL_RESPONSE_SZ];
-	g_autofree guint8 *cmd = g_malloc0 (blocksz + 8);
-	cmd[0] = FU_WACOM_RAW_BL_REPORT_ID_SET;
-	cmd[1] = FU_WACOM_RAW_BL_CMD_WRITE_FLASH;
-	cmd[2] = (guint8) idx;	/* echo */
+	guint baseaddr = fu_wacom_device_get_base_addr (FU_WACOM_DEVICE (self));
+	FuWacomRawResponse rsp;
+	FuWacomRawRequest req = {
+		.cmd = FU_WACOM_RAW_BL_CMD_WRITE_FLASH,
+		.echo = (guint8) idx,
+		.addr = GUINT_TO_LE(baseaddr + address),
+		.size8 = datasz / 8,
+		.data = { 0x00 },
+	};
 
-	/* address */
-	address += fu_wacom_device_get_base_addr (FU_WACOM_DEVICE (self));
-	fu_common_write_uint32 (cmd + 3, address, G_LITTLE_ENDIAN);
-
-	/* size */
+	/* check size */
 	if (datasz != blocksz) {
 		g_set_error (error,
 			     G_IO_ERROR,
@@ -159,14 +157,10 @@ fu_wacom_aes_device_write_block (FuWacomAesDevice *self,
 			     datasz, (guint) blocksz);
 		return FALSE;
 	}
-	cmd[7] = datasz / 8;
-
-	/* data */
-	memcpy (cmd + 8, data, datasz);
+	memcpy (&req.data, data, datasz);
 
 	/* write */
-	if (!fu_wacom_device_cmd (FU_WACOM_DEVICE (self),
-				  cmd, sizeof(cmd), rsp, sizeof(rsp), 1000,
+	if (!fu_wacom_device_cmd (FU_WACOM_DEVICE (self), &req, &rsp, 1000,
 				  FU_WACOM_DEVICE_CMD_FLAG_NONE, error)) {
 		g_prefix_error (error, "failed to write block %u: ", idx);
 		return FALSE;

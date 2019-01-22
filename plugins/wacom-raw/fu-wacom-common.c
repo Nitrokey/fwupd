@@ -10,79 +10,80 @@
 
 #include "fu-wacom-common.h"
 
-#define REQ
-
 gboolean
-fu_wacom_common_check_reply (const guint8 *req, const guint8 *rsp, GError **error)
+fu_wacom_common_check_reply (const FuWacomRawRequest *req,
+			     const FuWacomRawResponse *rsp,
+			     GError **error)
 {
-	if (req[REQ_REPORT] != rsp[RTRN_REPORT]) {
+	if (rsp->report_id != FU_WACOM_RAW_BL_REPORT_ID_GET) {
 		g_set_error (error,
 			     G_IO_ERROR,
 			     G_IO_ERROR_FAILED,
 			     "report ID failed, expected 0x%02x, got 0x%02x",
-			     req[REQ_REPORT], rsp[RTRN_CMD]);
+			     (guint) FU_WACOM_RAW_BL_REPORT_ID_GET,
+			     req->report_id);
 		return FALSE;
 	}
-	if (req[REQ_CMD] != rsp[RTRN_CMD]) {
+	if (req->cmd != rsp->cmd) {
 		g_set_error (error,
 			     G_IO_ERROR,
 			     G_IO_ERROR_FAILED,
 			     "cmd failed, expected 0x%02x, got 0x%02x",
-			     req[REQ_CMD], rsp[RTRN_CMD]);
+			     req->cmd, rsp->cmd);
 		return FALSE;
 	}
-	if (req[REQ_ECH] != rsp[RTRN_ECH]) {
+	if (req->echo != rsp->echo) {
 		g_set_error (error,
 			     G_IO_ERROR,
 			     G_IO_ERROR_FAILED,
 			     "echo failed, expected 0x%02x, got 0x%02x",
-			     req[REQ_ECH], rsp[RTRN_ECH]);
+			     req->echo, rsp->echo);
 		return FALSE;
 	}
 	return TRUE;
 }
 
 gboolean
-fu_wacom_common_rc_set_error (guint8 rc, GError **error)
+fu_wacom_common_rc_set_error (const FuWacomRawResponse *rsp, GError **error)
 {
-	if (rc == FU_WACOM_RAW_RC_OK)
+	if (rsp->resp == FU_WACOM_RAW_RC_OK)
 		return TRUE;
-	if (rc == FU_WACOM_RAW_RC_BUSY) {
+	if (rsp->resp == FU_WACOM_RAW_RC_BUSY) {
 		g_set_error (error,
 			     G_IO_ERROR,
 			     G_IO_ERROR_BUSY,
 			     "device is busy");
 		return FALSE;
 	}
-	if (rc == FU_WACOM_RAW_RC_MCUTYPE) {
+	if (rsp->resp == FU_WACOM_RAW_RC_MCUTYPE) {
 		g_set_error (error,
 			     G_IO_ERROR,
 			     G_IO_ERROR_INVALID_DATA,
 			     "MCU type does not match");
 		return FALSE;
 	}
-	if (rc == FU_WACOM_RAW_RC_PID) {
+	if (rsp->resp == FU_WACOM_RAW_RC_PID) {
 		g_set_error (error,
 			     G_IO_ERROR,
 			     G_IO_ERROR_INVALID_DATA,
 			     "PID does not match");
 		return FALSE;
 	}
-	if (rc == FU_WACOM_RAW_RC_CHECKSUM1) {
+	if (rsp->resp == FU_WACOM_RAW_RC_CHECKSUM1) {
 		g_set_error (error,
 			     G_IO_ERROR,
 			     G_IO_ERROR_INVALID_DATA,
 			     "checksum1 does not match");
 		return FALSE;
 	}
-	if (rc == FU_WACOM_RAW_RC_CHECKSUM2) {
+	if (rsp->resp == FU_WACOM_RAW_RC_CHECKSUM2) {
 		g_set_error (error,
 			     G_IO_ERROR,
 			     G_IO_ERROR_INVALID_DATA,
 			     "checksum2 does not match");
 		return FALSE;
 	}
-	if (rc == FU_WACOM_RAW_RC_TIMEOUT) {
+	if (rsp->resp == FU_WACOM_RAW_RC_TIMEOUT) {
 		g_set_error (error,
 			     G_IO_ERROR,
 			     G_IO_ERROR_TIMED_OUT,
@@ -92,7 +93,7 @@ fu_wacom_common_rc_set_error (guint8 rc, GError **error)
 	g_set_error (error,
 		     G_IO_ERROR,
 		     G_IO_ERROR_FAILED,
-		     "unknown error 0x%02x", rc);
+		     "unknown error 0x%02x", rsp->resp);
 	return FALSE;
 }
 

@@ -48,20 +48,28 @@ G_BEGIN_DECLS
 
 #define FU_WACOM_RAW_ECHO_DEFAULT		0xee
 
-#define REQ_REPORT				0
-#define REQ_CMD					1
-#define REQ_ECH					2
+typedef struct {
+	guint8	 report_id;
+	guint8	 cmd;
+	guint8	 echo;
+	guint32	 addr;
+	guint8	 size8;
+	guint8	 data[128];
+	guint8	 data_unused[121];
+} FuWacomRawRequest;
 
-#define RTRN_REPORT				0
-#define RTRN_CMD				1
-#define RTRN_ECH				2
-#define RTRN_RESP				3
-#define FU_WACOM_RAW_BL_RESPONSE_SZ		6
+typedef struct {
+	guint8	 report_id;
+	guint8	 cmd;
+	guint8	 echo;
+	guint8	 resp;
+	guint8	 data_unused[132];
+} FuWacomRawResponse;
 
-gboolean	 fu_wacom_common_rc_set_error	(guint8		 rc,
+gboolean	 fu_wacom_common_rc_set_error	(const FuWacomRawResponse *rsp,
 						 GError		**error);
-gboolean	 fu_wacom_common_check_reply	(const guint8	*cmd,
-						 const guint8	*rsp,
+gboolean	 fu_wacom_common_check_reply	(const FuWacomRawRequest *req,
+						 const FuWacomRawResponse *rsp,
 						 GError		**error);
 gboolean	 fu_wacom_common_block_is_empty	(const guint8	*data,
 						 guint16	 datasz);

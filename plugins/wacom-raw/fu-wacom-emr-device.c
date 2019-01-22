@@ -61,17 +61,17 @@ fu_wacom_emr_device_calc_checksum (guint8 init1, const guint8 *buf, guint8 bufsz
 static gboolean
 fu_wacom_emr_device_w9013_erase_data (FuWacomEmrDevice *self, GError **error)
 {
-	guint8 rsp[FU_WACOM_RAW_BL_RESPONSE_SZ];
-	guint8 cmd[] = {
-		FU_WACOM_RAW_BL_REPORT_ID_SET,
-		FU_WACOM_RAW_BL_CMD_ERASE_DATAMEM,
-		0x00,					/* echo */
-		0x00,					/* erased block */
-		0xff,					/* checksum */
+	FuWacomRawResponse rsp;
+	FuWacomRawRequest req = {
+		.cmd = FU_WACOM_RAW_BL_CMD_ERASE_DATAMEM,
+		.echo = FU_WACOM_RAW_ECHO_DEFAULT,
+		0x00
 	};
-	cmd[4] = fu_wacom_emr_device_calc_checksum (0x05 + 0x00 + 0x07 + 0x00, cmd, 4);
-	if (!fu_wacom_device_cmd (FU_WACOM_DEVICE (self),
-				  cmd, sizeof(cmd), rsp, sizeof(rsp), 50,
+	guint8 *buf = (guint8 *) &req.addr;
+	buf[0] = 0x00; /* erased block */
+	buf[1] = fu_wacom_emr_device_calc_checksum (0x05 + 0x00 + 0x07 + 0x00,
+						    (const guint8 *) &req, 4);
+	if (!fu_wacom_device_cmd (FU_WACOM_DEVICE (self), &req, &rsp, 50,
 				  FU_WACOM_DEVICE_CMD_FLAG_POLL_ON_WAITING, error)) {
 		g_prefix_error (error, "failed to erase datamem: ");
 		return FALSE;
@@ -86,17 +86,17 @@ fu_wacom_emr_device_w9013_erase_code (FuWacomEmrDevice *self,
 				      guint8 block_nr,
 				      GError **error)
 {
-	guint8 rsp[FU_WACOM_RAW_BL_RESPONSE_SZ];
-	guint8 cmd[] = {
-		FU_WACOM_RAW_BL_REPORT_ID_SET,
-		FU_WACOM_RAW_BL_CMD_ERASE_FLASH,
-		idx,			/* echo */
-		block_nr,		/* erased block */
-		0xff,			/* checksum */
+	FuWacomRawResponse rsp;
+	FuWacomRawRequest req = {
+		.cmd = FU_WACOM_RAW_BL_CMD_ERASE_FLASH,
+		.echo = idx,
+		0x00
 	};
-	cmd[4] = fu_wacom_emr_device_calc_checksum (0x05 + 0x00 + 0x07 + 0x00, cmd, 4);
-	if (!fu_wacom_device_cmd (FU_WACOM_DEVICE (self),
-				  cmd, sizeof(cmd), rsp, sizeof(rsp), 50,
+	guint8 *buf = (guint8 *) &req.addr;
+	buf[0] = block_nr;
+	buf[1] = fu_wacom_emr_device_calc_checksum (0x05 + 0x00 + 0x07 + 0x00,
+						    (const guint8 *) &req, 4);
+	if (!fu_wacom_device_cmd (FU_WACOM_DEVICE (self), &req, &rsp, 50,
 				  FU_WACOM_DEVICE_CMD_FLAG_POLL_ON_WAITING, error)) {
 		g_prefix_error (error, "failed to erase codemem: ");
 		return FALSE;
@@ -108,21 +108,19 @@ fu_wacom_emr_device_w9013_erase_code (FuWacomEmrDevice *self,
 static gboolean
 fu_wacom_device_w9021_erase_all (FuWacomEmrDevice *self, GError **error)
 {
-	guint8 rsp[FU_WACOM_RAW_BL_RESPONSE_SZ];
-	guint8 cmd[] = {
-		FU_WACOM_RAW_BL_REPORT_ID_SET,
-		FU_WACOM_RAW_BL_CMD_ALL_ERASE,
-		0x01,				/* echo */
-		0x00,				/* blkNo */
+	FuWacomRawResponse rsp;
+	FuWacomRawRequest req = {
+		.cmd = FU_WACOM_RAW_BL_CMD_ALL_ERASE,
+		.echo = 0x01,
+		.addr = 0x00,
 	};
-	if (!fu_wacom_device_cmd (FU_WACOM_DEVICE (self),
-				  cmd, sizeof(cmd), rsp, sizeof(rsp),
+	if (!fu_wacom_device_cmd (FU_WACOM_DEVICE (self), &req, &rsp,
 				  2000 * 1000, /* this takes a long time */
 				  FU_WACOM_DEVICE_CMD_FLAG_POLL_ON_WAITING, error)) {
 		g_prefix_error (error, "failed to send eraseall command: ");
 		return FALSE;
 	}
-	if (!fu_wacom_common_rc_set_error (rsp[RTRN_RESP], error)) {
+	if (!fu_wacom_common_rc_set_error (&rsp, error)) {
 		g_prefix_error (error, "failed to erase");
 		return FALSE;
 	}
@@ -138,18 +136,18 @@ fu_wacom_emr_device_write_block (FuWacomEmrDevice *self,
 				 guint16 datasz,
 				 GError **error)
 {
-	guint8 rsp[FU_WACOM_RAW_BL_RESPONSE_SZ];
+	guint baseaddr = fu_wacom_device_get_base_addr (FU_WACOM_DEVICE (self));
 	guint blocksz = fu_wacom_device_get_block_sz (FU_WACOM_DEVICE (self));
-	guint cmdsz = blocksz + 8 + 2;
-	g_autofree guint8 *cmd = g_malloc0 (cmdsz);
-	cmd[0] = FU_WACOM_RAW_BL_REPORT_ID_SET;
-	cmd[1] = FU_WACOM_RAW_BL_CMD_WRITE_FLASH;
-	cmd[2] = (guint8) idx;	/* echo */
+	FuWacomRawResponse rsp;
+	FuWacomRawRequest req = {
+		.cmd = FU_WACOM_RAW_BL_CMD_WRITE_FLASH,
+		.echo = (guint8) idx,
+		.addr = GUINT_TO_LE(baseaddr + address),
+		.size8 = datasz / 8,
+		.data = { 0x00 },
+	};
 
-	/* address */
-	fu_common_write_uint32 (cmd + 3, address, G_LITTLE_ENDIAN);
-
-	/* size */
+	/* check size */
 	if (datasz != blocksz) {
 		g_set_error (error,
 			     G_IO_ERROR,
@@ -158,16 +156,15 @@ fu_wacom_emr_device_write_block (FuWacomEmrDevice *self,
 			     datasz, (guint) blocksz);
 		return FALSE;
 	}
-	cmd[7] = datasz / 8;
 
 	/* data */
-	memcpy (cmd + 8, data, datasz);
+	memcpy (&req.data + 8, data, datasz);
 
 	/* cmd and data checksums */
-	cmd[8 + blocksz + 0] = fu_wacom_emr_device_calc_checksum (0x05 + 0x00 + 0x4c + 0x00, cmd, 8);
-	cmd[8 + blocksz + 1] = fu_wacom_emr_device_calc_checksum (0x00, data, datasz);
-	if (!fu_wacom_device_cmd (FU_WACOM_DEVICE (self),
-				  cmd, cmdsz, rsp, sizeof(rsp), 50,
+	req.data[blocksz + 0] = fu_wacom_emr_device_calc_checksum (0x05 + 0x00 + 0x4c + 0x00,
+								   (const guint8 *) &req, 8);
+	req.data[blocksz + 1] = fu_wacom_emr_device_calc_checksum (0x00, data, datasz);
+	if (!fu_wacom_device_cmd (FU_WACOM_DEVICE (self), &req, &rsp, 50,
 				  FU_WACOM_DEVICE_CMD_FLAG_NONE, error)) {
 		g_prefix_error (error, "failed to write at 0x%x: ", address);
 		return FALSE;

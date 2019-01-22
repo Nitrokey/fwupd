@@ -7,6 +7,7 @@
 #ifndef __FU_WACOM_DEVICE_H
 #define __FU_WACOM_DEVICE_H
 
+#include "fu-wacom-common.h"
 #include "fu-udev-device.h"
 #include "dfu-element.h"
 
@@ -37,10 +38,8 @@ gboolean	 fu_wacom_device_get_feature	(FuWacomDevice	*self,
 						 guint		 datasz,
 						 GError		**error);
 gboolean	 fu_wacom_device_cmd		(FuWacomDevice	*self,
-						 const guint8	*cmd,
-						 guint		 cmdsz,
-						 guint8		*rsp,
-						 guint		 rspsz,
+						 FuWacomRawRequest *req,
+						 FuWacomRawResponse *rsp,
 						 gulong		 delay_us,
 						 FuWacomDeviceCmdFlags flags,
 						 GError 	**error);
