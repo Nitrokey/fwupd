@@ -61,10 +61,10 @@ fu_wacom_emr_device_calc_checksum (guint8 init1, const guint8 *buf, guint8 bufsz
 static gboolean
 fu_wacom_emr_device_w9013_erase_data (FuWacomEmrDevice *self, GError **error)
 {
-	guint8 rsp[RSP_SIZE];
+	guint8 rsp[FU_WACOM_RAW_BL_RESPONSE_SZ];
 	guint8 cmd[] = {
-		FU_WACOM_DEVICE_BL_REPORT_ID_SET,
-		FU_WACOM_DEVICE_BL_CMD_ERASE_DATAMEM,
+		FU_WACOM_RAW_BL_REPORT_ID_SET,
+		FU_WACOM_RAW_BL_CMD_ERASE_DATAMEM,
 		0x00,					/* echo */
 		0x00,					/* erased block */
 		0xff,					/* checksum */
@@ -86,10 +86,10 @@ fu_wacom_emr_device_w9013_erase_code (FuWacomEmrDevice *self,
 				      guint8 block_nr,
 				      GError **error)
 {
-	guint8 rsp[RSP_SIZE];
+	guint8 rsp[FU_WACOM_RAW_BL_RESPONSE_SZ];
 	guint8 cmd[] = {
-		FU_WACOM_DEVICE_BL_REPORT_ID_SET,
-		FU_WACOM_DEVICE_BL_CMD_ERASE_FLASH,
+		FU_WACOM_RAW_BL_REPORT_ID_SET,
+		FU_WACOM_RAW_BL_CMD_ERASE_FLASH,
 		idx,			/* echo */
 		block_nr,		/* erased block */
 		0xff,			/* checksum */
@@ -108,10 +108,10 @@ fu_wacom_emr_device_w9013_erase_code (FuWacomEmrDevice *self,
 static gboolean
 fu_wacom_device_w9021_erase_all (FuWacomEmrDevice *self, GError **error)
 {
-	guint8 rsp[RSP_SIZE];
+	guint8 rsp[FU_WACOM_RAW_BL_RESPONSE_SZ];
 	guint8 cmd[] = {
-		FU_WACOM_DEVICE_BL_REPORT_ID_SET,
-		FU_WACOM_DEVICE_BL_CMD_ALL_ERASE,
+		FU_WACOM_RAW_BL_REPORT_ID_SET,
+		FU_WACOM_RAW_BL_CMD_ALL_ERASE,
 		0x01,				/* echo */
 		0x00,				/* blkNo */
 	};
@@ -122,7 +122,7 @@ fu_wacom_device_w9021_erase_all (FuWacomEmrDevice *self, GError **error)
 		g_prefix_error (error, "failed to send eraseall command: ");
 		return FALSE;
 	}
-	if (!fu_wacom_common_rc_set_error (rsp[RTRN_RSP], error)) {
+	if (!fu_wacom_common_rc_set_error (rsp[RTRN_RESP], error)) {
 		g_prefix_error (error, "failed to erase");
 		return FALSE;
 	}
@@ -138,12 +138,12 @@ fu_wacom_emr_device_write_block (FuWacomEmrDevice *self,
 				 guint16 datasz,
 				 GError **error)
 {
-	guint8 rsp[RSP_SIZE];
+	guint8 rsp[FU_WACOM_RAW_BL_RESPONSE_SZ];
 	guint blocksz = fu_wacom_device_get_block_sz (FU_WACOM_DEVICE (self));
 	guint cmdsz = blocksz + 8 + 2;
 	g_autofree guint8 *cmd = g_malloc0 (cmdsz);
-	cmd[0] = FU_WACOM_DEVICE_BL_REPORT_ID_SET;
-	cmd[1] = FU_WACOM_DEVICE_BL_CMD_WRITE_FLASH;
+	cmd[0] = FU_WACOM_RAW_BL_REPORT_ID_SET;
+	cmd[1] = FU_WACOM_RAW_BL_CMD_WRITE_FLASH;
 	cmd[2] = (guint8) idx;	/* echo */
 
 	/* address */

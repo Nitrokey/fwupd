@@ -23,10 +23,10 @@ G_DEFINE_TYPE (FuWacomAesDevice, fu_wacom_aes_device, FU_TYPE_WACOM_DEVICE)
 static gboolean
 fu_wacom_aes_device_obtain_hwid (FuWacomAesDevice *self, GError **error)
 {
-	guint8 cmd[FU_WACOM_DEVICE_FW_MAINTAIN_REPORT_SZ] = { 0x0 };
-	guint8 buf[FU_WACOM_DEVICE_FW_MAINTAIN_REPORT_SZ] = { 0x0 };
+	guint8 cmd[FU_WACOM_RAW_FW_MAINTAIN_REPORT_SZ] = { 0x0 };
+	guint8 buf[FU_WACOM_RAW_FW_MAINTAIN_REPORT_SZ] = { 0x0 };
 
-	cmd[0] = FU_WACOM_DEVICE_FW_MAINTAIN_REPORT_ID;
+	cmd[0] = FU_WACOM_RAW_FW_MAINTAIN_REPORT_ID;
 	cmd[1] = 0x01; /* ?? */
 	cmd[2] = 0x01; /* ?? */
 	cmd[3] = 0x0f; /* ?? */
@@ -36,7 +36,7 @@ fu_wacom_aes_device_obtain_hwid (FuWacomAesDevice *self, GError **error)
 		g_prefix_error (error, "failed to send: ");
 		return FALSE;
 	}
-	buf[0] = FU_WACOM_DEVICE_FW_MAINTAIN_REPORT_ID;
+	buf[0] = FU_WACOM_RAW_FW_MAINTAIN_REPORT_ID;
 	if (!fu_wacom_device_get_feature (FU_WACOM_DEVICE (self),
 					  buf, sizeof(buf), error)) {
 		g_prefix_error (error, "failed to receive: ");
@@ -78,8 +78,8 @@ fu_wacom_aes_device_setup (FuDevice *device, GError **error)
 		fu_device_set_version (device, "0.0");
 	} else {
 		guint32 fw_ver;
-		guint8 data[FU_WACOM_DEVICE_STATUS_REPORT_SZ] = {
-			FU_WACOM_DEVICE_STATUS_REPORT_ID,
+		guint8 data[FU_WACOM_RAW_STATUS_REPORT_SZ] = {
+			FU_WACOM_RAW_STATUS_REPORT_ID,
 			0x0
 		};
 		g_autofree gchar *version = NULL;
@@ -109,10 +109,10 @@ fu_wacom_aes_device_setup (FuDevice *device, GError **error)
 static gboolean
 fu_wacom_aes_device_erase_all (FuWacomAesDevice *self, GError **error)
 {
-	guint8 rsp[RSP_SIZE];
+	guint8 rsp[FU_WACOM_RAW_BL_RESPONSE_SZ];
 	guint8 cmd[] = {
-		FU_WACOM_DEVICE_BL_REPORT_ID_SET,
-		FU_WACOM_DEVICE_BL_CMD_ALL_ERASE,
+		FU_WACOM_RAW_BL_REPORT_ID_SET,
+		FU_WACOM_RAW_BL_CMD_ALL_ERASE,
 		0x01,				/* echo */
 		0x00,				/* blkNo */
 	};
@@ -123,7 +123,7 @@ fu_wacom_aes_device_erase_all (FuWacomAesDevice *self, GError **error)
 		g_prefix_error (error, "failed to send eraseall command: ");
 		return FALSE;
 	}
-	if (!fu_wacom_common_rc_set_error (rsp[RTRN_RSP], error)) {
+	if (!fu_wacom_common_rc_set_error (rsp[RTRN_RESP], error)) {
 		g_prefix_error (error, "failed to erase");
 		return FALSE;
 	}
@@ -140,10 +140,10 @@ fu_wacom_aes_device_write_block (FuWacomAesDevice *self,
 				 GError **error)
 {
 	guint blocksz = fu_wacom_device_get_block_sz (FU_WACOM_DEVICE (self));
-	guint8 rsp[RSP_SIZE];
+	guint8 rsp[FU_WACOM_RAW_BL_RESPONSE_SZ];
 	g_autofree guint8 *cmd = g_malloc0 (blocksz + 8);
-	cmd[0] = FU_WACOM_DEVICE_BL_REPORT_ID_SET;
-	cmd[1] = FU_WACOM_DEVICE_BL_CMD_WRITE_FLASH;
+	cmd[0] = FU_WACOM_RAW_BL_REPORT_ID_SET;
+	cmd[1] = FU_WACOM_RAW_BL_CMD_WRITE_FLASH;
 	cmd[2] = (guint8) idx;	/* echo */
 
 	/* address */

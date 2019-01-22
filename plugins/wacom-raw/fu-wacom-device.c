@@ -59,11 +59,11 @@ fu_wacom_device_get_base_addr (FuWacomDevice *self)
 gboolean
 fu_wacom_device_check_mpu (FuWacomDevice *self, GError **error)
 {
-	guint8 rsp[RSP_SIZE];
+	guint8 rsp[FU_WACOM_RAW_BL_RESPONSE_SZ];
 	guint8 cmd[] = {
-		FU_WACOM_DEVICE_BL_REPORT_ID_SET,
-		FU_WACOM_DEVICE_BL_CMD_GET_MPUTYPE,
-		FU_WACOM_DEVICE_ECHO_DEFAULT,		/* echo */
+		FU_WACOM_RAW_BL_REPORT_ID_SET,
+		FU_WACOM_RAW_BL_CMD_GET_MPUTYPE,
+		FU_WACOM_RAW_ECHO_DEFAULT,		/* echo */
 		0x00					/* rsp */
 	};
 	if (!fu_wacom_device_cmd (FU_WACOM_DEVICE (self),
@@ -74,13 +74,13 @@ fu_wacom_device_check_mpu (FuWacomDevice *self, GError **error)
 	}
 
 	/* W9013 */
-	if (rsp[RTRN_RSP] == 0x2e) {
+	if (rsp[RTRN_RESP] == 0x2e) {
 		fu_device_add_guid (FU_DEVICE (self), "WacomEMR_W9013");
 		return TRUE;
 	}
 
 	/* W9021 */
-	if (rsp[RTRN_RSP] == 0x45) {
+	if (rsp[RTRN_RESP] == 0x45) {
 		fu_device_add_guid (FU_DEVICE (self), "WacomEMR_W9021");
 		return TRUE;
 	}
@@ -90,7 +90,7 @@ fu_wacom_device_check_mpu (FuWacomDevice *self, GError **error)
 		     G_IO_ERROR,
 		     G_IO_ERROR_FAILED,
 		     "MPU is not W9013 or W9021: 0x%x",
-		     rsp[RTRN_RSP]);
+		     rsp[RTRN_RESP]);
 	return FALSE;
 }
 
@@ -141,9 +141,9 @@ fu_wacom_device_detach (FuDevice *device, GError **error)
 {
 	FuWacomDevice *self = FU_WACOM_DEVICE (device);
 	guint8 cmd[] = {
-		FU_WACOM_DEVICE_FW_REPORT_ID,
-		FU_WACOM_DEVICE_FW_CMD_DETACH,
-		FU_WACOM_DEVICE_ECHO_DEFAULT,		/* echo */
+		FU_WACOM_RAW_FW_REPORT_ID,
+		FU_WACOM_RAW_FW_CMD_DETACH,
+		FU_WACOM_RAW_ECHO_DEFAULT,		/* echo */
 		0x00					/* rsp */
 	};
 	if (!fu_wacom_device_set_feature (self, cmd, sizeof(cmd), error)) {
@@ -160,9 +160,9 @@ fu_wacom_device_attach (FuDevice *device, GError **error)
 {
 	FuWacomDevice *self = FU_WACOM_DEVICE (device);
 	guint8 cmd[] = {
-		FU_WACOM_DEVICE_BL_REPORT_ID_SET,
-		FU_WACOM_DEVICE_BL_CMD_ATTACH,
-		FU_WACOM_DEVICE_ECHO_DEFAULT,		/* echo */
+		FU_WACOM_RAW_BL_REPORT_ID_SET,
+		FU_WACOM_RAW_BL_CMD_ATTACH,
+		FU_WACOM_RAW_ECHO_DEFAULT,		/* echo */
 		0x00					/* rsp */
 	};
 	if (!fu_wacom_device_set_feature (self, cmd, sizeof(cmd), error)) {
@@ -178,11 +178,11 @@ fu_wacom_device_attach (FuDevice *device, GError **error)
 static gboolean
 fu_wacom_device_check_mode (FuWacomDevice *self, GError **error)
 {
-	guint8 rsp[RSP_SIZE];
+	guint8 rsp[FU_WACOM_RAW_BL_RESPONSE_SZ];
 	guint8 cmd[] = {
-		FU_WACOM_DEVICE_BL_REPORT_ID_SET,
-		FU_WACOM_DEVICE_BL_CMD_CHECK_MODE,
-		FU_WACOM_DEVICE_ECHO_DEFAULT,		/* echo */
+		FU_WACOM_RAW_BL_REPORT_ID_SET,
+		FU_WACOM_RAW_BL_CMD_CHECK_MODE,
+		FU_WACOM_RAW_ECHO_DEFAULT,		/* echo */
 		0x00					/* rsp */
 	};
 	if (!fu_wacom_device_cmd (self, cmd, sizeof(cmd), rsp, sizeof(rsp), 0,
@@ -190,12 +190,12 @@ fu_wacom_device_check_mode (FuWacomDevice *self, GError **error)
 		g_prefix_error (error, "failed to check mode: ");
 		return FALSE;
 	}
-	if (rsp[RTRN_RSP] != 0x06) {
+	if (rsp[RTRN_RESP] != 0x06) {
 		g_set_error (error,
 			     G_IO_ERROR,
 			     G_IO_ERROR_FAILED,
 			     "check mode failed, mode=0x%02x",
-			     rsp[RTRN_RSP]);
+			     rsp[RTRN_RESP]);
 		return FALSE;
 	}
 	return TRUE;
@@ -204,11 +204,11 @@ fu_wacom_device_check_mode (FuWacomDevice *self, GError **error)
 static gboolean
 fu_wacom_device_set_version_bootloader (FuWacomDevice *self, GError **error)
 {
-	guint8 rsp[RSP_SIZE];
+	guint8 rsp[FU_WACOM_RAW_BL_RESPONSE_SZ];
 	guint8 cmd[] = {
-		FU_WACOM_DEVICE_BL_REPORT_ID_SET,
-		FU_WACOM_DEVICE_BL_CMD_GET_BLVER,
-		FU_WACOM_DEVICE_ECHO_DEFAULT,		/* echo */
+		FU_WACOM_RAW_BL_REPORT_ID_SET,
+		FU_WACOM_RAW_BL_CMD_GET_BLVER,
+		FU_WACOM_RAW_ECHO_DEFAULT,		/* echo */
 		0x00					/* rsp */
 	};
 	g_autofree gchar *version = NULL;
@@ -217,7 +217,7 @@ fu_wacom_device_set_version_bootloader (FuWacomDevice *self, GError **error)
 		g_prefix_error (error, "failed to get bootloader version: ");
 		return FALSE;
 	}
-	version = g_strdup_printf ("%u", rsp[RTRN_RSP]);
+	version = g_strdup_printf ("%u", rsp[RTRN_RESP]);
 	fu_device_set_version_bootloader (FU_DEVICE (self), version);
 	return TRUE;
 }
@@ -360,20 +360,20 @@ fu_wacom_device_cmd (FuWacomDevice *self,
 
 	/* wait for the command to complete */
 	if (flags & FU_WACOM_DEVICE_CMD_FLAG_POLL_ON_WAITING &&
-	    rsp[RTRN_RSP] == FU_WACOM_DEVICE_RC_IN_PROGRESS) {
-		for (guint i = 0; i < FU_WACOM_DEVICE_CMD_RETRIES; i++) {
+	    rsp[RTRN_RESP] == FU_WACOM_RAW_RC_IN_PROGRESS) {
+		for (guint i = 0; i < FU_WACOM_RAW_CMD_RETRIES; i++) {
 			if (delay_us > 0)
 				g_usleep (delay_us);
 			if (!fu_wacom_device_get_feature (self, rsp, sizeof(rsp), error))
 				return FALSE;
 			if (!fu_wacom_common_check_reply (cmd, rsp, error))
 				return FALSE;
-			if (rsp[RTRN_RSP] != FU_WACOM_DEVICE_RC_IN_PROGRESS &&
-			    rsp[RTRN_RSP] != FU_WACOM_DEVICE_RC_BUSY)
+			if (rsp[RTRN_RESP] != FU_WACOM_RAW_RC_IN_PROGRESS &&
+			    rsp[RTRN_RESP] != FU_WACOM_RAW_RC_BUSY)
 				break;
 		}
 	}
-	return fu_wacom_common_rc_set_error (rsp[RTRN_RSP], error);
+	return fu_wacom_common_rc_set_error (rsp[RTRN_RESP], error);
 }
 
 static gboolean
