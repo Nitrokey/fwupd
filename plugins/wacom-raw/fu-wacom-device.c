@@ -139,6 +139,7 @@ fu_wacom_device_detach (FuDevice *device, GError **error)
 {
 	FuWacomDevice *self = FU_WACOM_DEVICE (device);
 	FuWacomRawRequest req = {
+		.report_id = FU_WACOM_RAW_FW_REPORT_ID,
 		.cmd = FU_WACOM_RAW_FW_CMD_DETACH,
 		.echo = FU_WACOM_RAW_ECHO_DEFAULT,
 		0x00
@@ -157,6 +158,7 @@ fu_wacom_device_attach (FuDevice *device, GError **error)
 {
 	FuWacomDevice *self = FU_WACOM_DEVICE (device);
 	FuWacomRawRequest req = {
+		.report_id = FU_WACOM_RAW_BL_REPORT_ID_SET,
 		.cmd = FU_WACOM_RAW_BL_CMD_ATTACH,
 		.echo = FU_WACOM_RAW_ECHO_DEFAULT,
 		0x00
