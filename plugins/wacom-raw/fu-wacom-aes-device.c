@@ -111,7 +111,7 @@ fu_wacom_aes_device_erase_all (FuWacomAesDevice *self, GError **error)
 {
 	FuWacomRawRequest req = {
 		.cmd = FU_WACOM_RAW_BL_CMD_ALL_ERASE,
-		.echo = 0x01,
+		.echo = FU_WACOM_RAW_ECHO_DEFAULT,
 		0x00
 	};
 	FuWacomRawResponse rsp = { 0x00 };
