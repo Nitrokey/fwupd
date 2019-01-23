@@ -27,6 +27,7 @@ struct _FuWacomDeviceClass
 typedef enum {
 	FU_WACOM_DEVICE_CMD_FLAG_NONE			= 0,
 	FU_WACOM_DEVICE_CMD_FLAG_POLL_ON_WAITING	= 1 << 0,
+	FU_WACOM_DEVICE_CMD_FLAG_NO_ERROR_CHECK		= 1 << 1,
 } FuWacomDeviceCmdFlags;
 
 gboolean	 fu_wacom_device_set_feature	(FuWacomDevice	*self,

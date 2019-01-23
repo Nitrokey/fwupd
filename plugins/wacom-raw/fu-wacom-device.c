@@ -176,7 +176,6 @@ fu_wacom_device_attach (FuDevice *device, GError **error)
 static gboolean
 fu_wacom_device_check_mode (FuWacomDevice *self, GError **error)
 {
-#if 0
 	FuWacomRawRequest req = {
 		.cmd = FU_WACOM_RAW_BL_CMD_CHECK_MODE,
 		.echo = FU_WACOM_RAW_ECHO_DEFAULT,
@@ -184,7 +183,7 @@ fu_wacom_device_check_mode (FuWacomDevice *self, GError **error)
 	};
 	FuWacomRawResponse rsp = { 0x00 };
 	if (!fu_wacom_device_cmd (self, &req, &rsp, 0,
-				  FU_WACOM_DEVICE_CMD_FLAG_NONE, error)) {
+				  FU_WACOM_DEVICE_CMD_FLAG_NO_ERROR_CHECK, error)) {
 		g_prefix_error (error, "failed to check mode: ");
 		return FALSE;
 	}
@@ -196,7 +195,6 @@ fu_wacom_device_check_mode (FuWacomDevice *self, GError **error)
 			     rsp.resp);
 		return FALSE;
 	}
-#endif
 	return TRUE;
 }
 
@@ -337,8 +335,7 @@ fu_wacom_device_get_feature (FuWacomDevice *self,
 
 gboolean
 fu_wacom_device_cmd (FuWacomDevice *self,
-		     FuWacomRawRequest *req,
-		     FuWacomRawResponse *rsp,
+		     FuWacomRawRequest *req, FuWacomRawResponse *rsp,
 		     gulong delay_us, FuWacomDeviceCmdFlags flags,
 		     GError **error)
 {
@@ -354,6 +351,8 @@ fu_wacom_device_cmd (FuWacomDevice *self,
 		g_prefix_error (error, "failed to receive: ");
 		return FALSE;
 	}
+	if (flags & FU_WACOM_DEVICE_CMD_FLAG_NO_ERROR_CHECK)
+		return TRUE;
 	if (!fu_wacom_common_check_reply (req, rsp, error))
 		return FALSE;
 
