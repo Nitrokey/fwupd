@@ -66,7 +66,7 @@ fu_wacom_device_check_mpu (FuWacomDevice *self, GError **error)
 	};
 	FuWacomRawResponse rsp = { 0x00 };
 	if (!fu_wacom_device_cmd (FU_WACOM_DEVICE (self), &req, &rsp, 0,
-				  FU_WACOM_DEVICE_CMD_FLAG_NONE, error)) {
+				  FU_WACOM_DEVICE_CMD_FLAG_NO_ERROR_CHECK, error)) {
 		g_prefix_error (error, "failed to get MPU type: ");
 		return FALSE;
 	}
@@ -209,7 +209,7 @@ fu_wacom_device_set_version_bootloader (FuWacomDevice *self, GError **error)
 	FuWacomRawResponse rsp = { 0x00 };
 	g_autofree gchar *version = NULL;
 	if (!fu_wacom_device_cmd (self, &req, &rsp, 0,
-				  FU_WACOM_DEVICE_CMD_FLAG_NONE, error)) {
+				  FU_WACOM_DEVICE_CMD_FLAG_NO_ERROR_CHECK, error)) {
 		g_prefix_error (error, "failed to get bootloader version: ");
 		return FALSE;
 	}
