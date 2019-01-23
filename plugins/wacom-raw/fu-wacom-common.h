@@ -46,7 +46,7 @@ G_BEGIN_DECLS
 #define FU_WACOM_RAW_RC_TIMEOUT			0x87
 #define FU_WACOM_RAW_RC_IN_PROGRESS		0xff
 
-#define FU_WACOM_RAW_ECHO_DEFAULT		0xee
+#define FU_WACOM_RAW_ECHO_DEFAULT		g_random_int_range(0xa0,0xfe)
 
 typedef struct {
 	guint8	 report_id;
@@ -55,7 +55,7 @@ typedef struct {
 	guint32	 addr;
 	guint8	 size8;
 	guint8	 data[128];
-	guint8	 data_unused[121];
+//	guint8	 data_unused[121];
 } FuWacomRawRequest;
 
 typedef struct {
@@ -63,7 +63,7 @@ typedef struct {
 	guint8	 cmd;
 	guint8	 echo;
 	guint8	 resp;
-	guint8	 data_unused[132];
+//	guint8	 data_unused[132];
 } FuWacomRawResponse;
 
 gboolean	 fu_wacom_common_rc_set_error	(const FuWacomRawResponse *rsp,
