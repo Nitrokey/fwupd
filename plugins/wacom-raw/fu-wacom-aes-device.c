@@ -69,9 +69,42 @@ fu_wacom_aes_device_obtain_hwid (FuWacomAesDevice *self, GError **error)
 }
 
 static gboolean
+fu_wacom_aes_query_operation_mode (FuWacomAesDevice *self, GError **error)
+{
+	guint8 buf[FU_WACOM_RAW_FW_REPORT_SZ] = {
+		FU_WACOM_RAW_FW_REPORT_ID,
+		FU_WACOM_RAW_FW_CMD_QUERY_MODE,
+	};
+
+	/* 0x00=runtime, 0x02=bootloader */
+	if (!fu_wacom_device_get_feature (FU_WACOM_DEVICE (self), buf, sizeof(buf), error))
+		return FALSE;
+	if (buf[1] == 0x00) {
+		fu_device_remove_flag (FU_DEVICE (self), FWUPD_DEVICE_FLAG_IS_BOOTLOADER);
+		return TRUE;
+	}
+	if (buf[1] == 0x02) {
+		fu_device_add_flag (FU_DEVICE (self), FWUPD_DEVICE_FLAG_IS_BOOTLOADER);
+		return TRUE;
+	}
+
+	/* unsupported */
+	g_set_error (error,
+		     G_IO_ERROR,
+		     G_IO_ERROR_FAILED,
+		     "Failed to query operation mode, got 0x%x",
+		     buf[1]);
+	return FALSE;
+}
+
+static gboolean
 fu_wacom_aes_device_setup (FuDevice *device, GError **error)
 {
 	FuWacomAesDevice *self = FU_WACOM_AES_DEVICE (device);
+
+	/* find out if in bootloader mode already */
+	if (!fu_wacom_aes_query_operation_mode (self, error))
+		return FALSE;
 
 	/* get firmware version */
 	if (fu_device_has_flag (device, FWUPD_DEVICE_FLAG_IS_BOOTLOADER)) {

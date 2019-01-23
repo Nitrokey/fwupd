@@ -19,6 +19,27 @@ fu_plugin_init (FuPlugin *plugin)
 }
 
 gboolean
+fu_plugin_update_detach (FuPlugin *plugin, FuDevice *device, GError **error)
+{
+	g_autoptr(FuDeviceLocker) locker = NULL;
+	if (fu_device_has_flag (device, FWUPD_DEVICE_FLAG_IS_BOOTLOADER))
+		return TRUE;
+	locker = fu_device_locker_new (device, error);
+	if (locker == NULL)
+		return FALSE;
+	return fu_device_detach (device, error);
+}
+
+gboolean
+fu_plugin_update_attach (FuPlugin *plugin, FuDevice *device, GError **error)
+{
+	g_autoptr(FuDeviceLocker) locker = fu_device_locker_new (device, error);
+	if (locker == NULL)
+		return FALSE;
+	return fu_device_attach (device, error);
+}
+
+gboolean
 fu_plugin_udev_device_added (FuPlugin *plugin, FuUdevDevice *device, GError **error)
 {
 	/* interesting device? */

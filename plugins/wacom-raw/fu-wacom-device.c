@@ -138,13 +138,11 @@ static gboolean
 fu_wacom_device_detach (FuDevice *device, GError **error)
 {
 	FuWacomDevice *self = FU_WACOM_DEVICE (device);
-	FuWacomRawRequest req = {
-		.report_id = FU_WACOM_RAW_FW_REPORT_ID,
-		.cmd = FU_WACOM_RAW_FW_CMD_DETACH,
-		.echo = FU_WACOM_RAW_ECHO_DEFAULT,
-		0x00
+	guint8 buf[FU_WACOM_RAW_FW_REPORT_SZ] = {
+		FU_WACOM_RAW_FW_REPORT_ID,
+		FU_WACOM_RAW_FW_CMD_DETACH,
 	};
-	if (!fu_wacom_device_set_feature (self, (const guint8 *) &req, sizeof(req), error)) {
+	if (!fu_wacom_device_set_feature (self, buf, sizeof(buf), error)) {
 		g_prefix_error (error, "failed to switch to bootloader mode: ");
 		return FALSE;
 	}
