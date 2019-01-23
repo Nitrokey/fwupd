@@ -136,12 +136,11 @@ fu_wacom_emr_device_write_block (FuWacomEmrDevice *self,
 				 guint16 datasz,
 				 GError **error)
 {
-	guint baseaddr = fu_wacom_device_get_base_addr (FU_WACOM_DEVICE (self));
 	guint blocksz = fu_wacom_device_get_block_sz (FU_WACOM_DEVICE (self));
 	FuWacomRawRequest req = {
 		.cmd = FU_WACOM_RAW_BL_CMD_WRITE_FLASH,
 		.echo = (guint8) idx,
-		.addr = GUINT_TO_LE(baseaddr + address),
+		.addr = GUINT32_TO_LE(address),
 		.size8 = datasz / 8,
 		.data = { 0x00 },
 	};
